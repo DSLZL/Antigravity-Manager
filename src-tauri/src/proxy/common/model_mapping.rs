@@ -11,7 +11,7 @@ static CLAUDE_TO_GEMINI: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|
     // 别名映射 / 重定向
     m.insert("claude-sonnet-4-6", "claude-sonnet-4-6-thinking");
     m.insert("claude-sonnet-4-6-20260219", "claude-sonnet-4-6-thinking");
-    
+
     // Legacy Redirects (Sonnet 4.5 -> 4.6)
     m.insert("claude-sonnet-4-5", "claude-sonnet-4-6-thinking");
     m.insert("claude-sonnet-4-5-thinking", "claude-sonnet-4-6-thinking");
@@ -24,14 +24,16 @@ static CLAUDE_TO_GEMINI: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|
     m.insert("claude-opus-4", "claude-opus-4-6-thinking");
     m.insert("claude-opus-4-5-thinking", "claude-opus-4-6-thinking");
     m.insert("claude-opus-4-5-20251101", "claude-opus-4-6-thinking");
-    
+
+    // Claude Opus 4.6
+    m.insert("claude-opus-4-6-thinking", "claude-opus-4-6-thinking");
     m.insert("claude-opus-4-6", "claude-opus-4-6-thinking");
     m.insert("claude-opus-4-6-20260201", "claude-opus-4-6-thinking");
 
     m.insert("claude-haiku-4", "claude-sonnet-4-6-thinking");
     m.insert("claude-3-haiku-20240307", "claude-sonnet-4-6-thinking");
     m.insert("claude-haiku-4-5-20251001", "claude-sonnet-4-6-thinking");
-
+    
     // OpenAI 协议映射表
     m.insert("gpt-4", "gemini-3.1-flash");
     m.insert("gpt-4-turbo", "gemini-3.1-flash");
@@ -66,6 +68,7 @@ static CLAUDE_TO_GEMINI: Lazy<HashMap<&'static str, &'static str>> = Lazy::new(|
     m.insert("gemini-3-pro-image", "gemini-3-pro-image");
 
     // [New] Unified Virtual ID for Background Tasks (Title, Summary, etc.)
+    // Allows users to override all background tasks via custom_mapping
     m.insert("internal-background-task", "gemini-3.1-flash");
 
 
@@ -159,11 +162,9 @@ pub async fn get_all_dynamic_models(
     }
 
     model_ids.insert("gemini-2.0-flash-exp".to_string());
-    model_ids.insert("gemini-2.5-flash".to_string());
-    // gemini-2.5-pro removed 
-    model_ids.insert("gemini-3-flash".to_string());
-    model_ids.insert("gemini-3-pro-high".to_string());
-    model_ids.insert("gemini-3-pro-low".to_string());
+    model_ids.insert("gemini-3.1-flash".to_string());
+    model_ids.insert("gemini-3.1-pro-high".to_string());
+    model_ids.insert("gemini-3.1-pro-low".to_string());
 
 
     let mut sorted_ids: Vec<_> = model_ids.into_iter().collect();
@@ -284,26 +285,18 @@ pub fn normalize_to_standard_id(model_name: &str) -> Option<String> {
         return Some("gemini-3-pro-image".to_string());
     }
 
-    // 2. gemini-3-flash (包含所有 flash 变体)
+    // 2. gemini-3.1-flash (包含所有 flash 变体)
     if lower.contains("flash") {
         return Some("gemini-3.1-flash".to_string());
     }
 
-    // 3. gemini-3-pro-high (包含 pro 变体)
+    // 3. gemini-3.1-pro-high (包含 pro 变体)
     if lower.contains("pro") && !lower.contains("image") {
         return Some("gemini-3.1-pro-high".to_string());
     }
 
     // 4. Claude 系列 (合并 Opus, Sonnet, Haiku 为统一保护组 'claude')
-    if lower.contains("claude")
-        || lower.contains("opus")
-        || lower.contains("sonnet")
-        || lower.contains("haiku")
-        || lower.contains("opus-4-6")
-        || lower.contains("opus-4.6")
-        || lower.contains("sonnet-4-6")
-        || lower.contains("sonnet-4.6")
-    {
+    if lower.contains("claude") || lower.contains("opus") || lower.contains("sonnet") || lower.contains("haiku") {
         return Some("claude".to_string());
     }
 
@@ -318,7 +311,7 @@ mod tests {
     fn test_model_mapping() {
         assert_eq!(
             map_claude_model_to_gemini("claude-3-5-sonnet-20241022"),
-            "claude-sonnet-4-5"
+            "claude-sonnet-4-6-thinking"
         );
         assert_eq!(
             map_claude_model_to_gemini("claude-opus-4"),
@@ -337,7 +330,7 @@ mod tests {
         // Test Normalization (Opus 4.6 now merged into "claude" group)
         assert_eq!(normalize_to_standard_id("claude-opus-4-6-thinking"), Some("claude".to_string()));
         assert_eq!(
-            normalize_to_standard_id("claude-sonnet-4-5"),
+            normalize_to_standard_id("claude-sonnet-4-6-thinking"),
             Some("claude".to_string())
         );
 
@@ -347,8 +340,8 @@ mod tests {
             Some("gemini-3-pro-image".to_string())
         );
         assert_eq!(
-            normalize_to_standard_id("gemini-3-pro-high"),
-            Some("gemini-3-pro-high".to_string())
+            normalize_to_standard_id("gemini-3.1-pro-high"),
+            Some("gemini-3.1-pro-high".to_string())
         );
 
         // [FIX #1955] Test normalization with image suffixes
